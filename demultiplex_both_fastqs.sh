@@ -429,6 +429,8 @@ fi
 
 		#echo "${short_file}"
 	  nseq_file=$(cat "${file}" | wc -l)
+#nseq_file=$(awk 'NR%4==2' "${file}" | wc -l) #numero total de reads cuenta
+
 	  #echo "${nseq_file} reads before retrimming"
 
 
@@ -524,7 +526,7 @@ cutadapt -a "${PRIMER2_RC}" \
 
 
 
-	nseq_NOF1=$(cat ${NEW_OUTPUT_Fwd_1} | wc -l)
+	nseq_NOF1=$(cat ${NEW_OUTPUT_Fwd_1} | wc -l) #numero total de lineas este valor tb lo podemos /4 y da el valor final
 	nseq_NOR1=$(cat ${NEW_OUTPUT_Rev_1} | wc -l)
 
 
