@@ -263,13 +263,9 @@ if [[ "${ALREADY_DEMULTIPLEXED}" != "YES" ]]; then
 	  exit
 	fi
 
-PRIMER1_RC=$(revcom "${PRIMER1}")
 
-echo "Fwd primer is ${PRIMER1} and its reverse complement is ${PRIMER1_RC}"
 
-PRIMER2_RC=$(revcom "${PRIMER2}")
 
-echo "Rev primer is ${PRIMER2} and its reverse complement is ${PRIMER2_RC}"
 
 #######
 #Unique samples are given by combining the primary and secondary indexes
