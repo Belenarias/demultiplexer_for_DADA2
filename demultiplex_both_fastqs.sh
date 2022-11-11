@@ -263,9 +263,13 @@ if [[ "${ALREADY_DEMULTIPLEXED}" != "YES" ]]; then
 	  exit
 	fi
 
+PRIMER1_RC=$(revcom "${PRIMER1}")
 
+echo "Fwd primer is ${PRIMER1} and its reverse complement is ${PRIMER1_RC}"
 
+PRIMER2_RC=$(revcom "${PRIMER2}")
 
+echo "Rev primer is ${PRIMER2} and its reverse complement is ${PRIMER2_RC}"
 
 #######
 #Unique samples are given by combining the primary and secondary indexes
@@ -425,6 +429,8 @@ fi
 
 		#echo "${short_file}"
 	  nseq_file=$(cat "${file}" | wc -l)
+#nseq_file=$(awk 'NR%4==2' "${file}" | wc -l) #numero total de reads cuenta
+
 	  #echo "${nseq_file} reads before retrimming"
 
 
@@ -494,7 +500,7 @@ echo "${RIGHT_BARCODE}"
 	"${OUTPUT_DIR}"/cleaned/${ID1S[i]}/${ID1S[i]}-"${RIGHT_BARCODE}"_REV_clean.1.fastq --quiet 2>> "${LOGFILE}"
 
 
-	nseq_NOF1=$(cat ${NEW_OUTPUT_Fwd_1} | wc -l)
+	nseq_NOF1=$(cat ${NEW_OUTPUT_Fwd_1} | wc -l) #numero total de lineas este valor tb lo podemos /4 y da el valor final
 	nseq_NOR1=$(cat ${NEW_OUTPUT_Rev_1} | wc -l)
 
 
