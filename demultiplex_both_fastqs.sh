@@ -6,7 +6,7 @@
 #$ -N raw_data_demultiplex
 #$ -M m.belen.ariasmella@essex.ac.uk
 #$ -m be
-#$ -pe smp 50
+#$ -pe smp 40
 
 param_file="/home/belenarias/edna/dada2/raw_data/params_cluster.sh"
 
