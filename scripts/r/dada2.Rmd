@@ -75,13 +75,13 @@ R2sgood<-R2s[sample.names %in% sample.map$fastq_header]
 
 A nice idea is to plot the Quality of the F1 reads
 
-```{r plot1, echo=FALSE}
+```{r qplot1, echo=FALSE}
 plotQualityProfile(F1sgood[1:4])
 ```
 
 The quality should be similar to that of the Reverse .1 reads
 
-```{r plot2, echo=FALSE}
+```{r qplot2, echo=FALSE}
 plotQualityProfile(R1sgood[1:4])
 ```
 
