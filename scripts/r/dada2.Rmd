@@ -75,7 +75,7 @@ R2sgood<-R2s[sample.names %in% sample.map$fastq_header]
 
 A nice idea is to plot the Quality of the F1 reads
 
-```{r qplot1, echo=FALSE}
+```{r plot1, echo=FALSE}
 plotQualityProfile(F1sgood[1:4])
 ```
 
