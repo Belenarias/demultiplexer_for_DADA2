@@ -393,9 +393,13 @@ sed -i '/^[^>]/s/N//g' "${Barcodes_file}"
 
 echo "First cutadapt, splits data by FWD or REV"
 
+REPORT_1="${OUTPUT_DIR}"/"${BASE1}"_info_round1.txt
+REPORT_2="${OUTPUT_DIR}"/"${BASE1}"_info_round2.txt
+REPORT_3="${OUTPUT_DIR}"/"${BASE1}"_info_round3.txt
+
 cutadapt -g file:"${primers_file}" -o "${OUTPUT_DIR}"/"${BASE1}"_{name}.fastq \
 	-p "${OUTPUT_DIR}"/"${BASE2}"_{name}.fastq \
- "${READ1}" "${READ2}"  --cores 16 --report=minimal --discard-untrimmed  --info-file "${OUTPUT_DIR}"/"${BASE1}"_info_round1.txt 2>> "${LOGFILE}"
+ "${READ1}" "${READ2}"  --cores 16 --report=minimal --discard-untrimmed  --info-file "${REPORT_1}" 2>> "${LOGFILE}"
 
 ## Now remove the other primer from the .2. First the Rev primer from the FWD files
 
@@ -405,7 +409,7 @@ cutadapt -g "${PRIMER2}" --report=minimal --cores 16 --discard-untrimmed \
 -o "${OUTPUT_DIR}"/"${BASE2}"_FWD_noprimers.fastq \
 -p "${OUTPUT_DIR}"/"${BASE1}"_FWD_noprimers.fastq \
 "${OUTPUT_DIR}"/"${BASE2}"_FWD.fastq \
-"${OUTPUT_DIR}"/"${BASE1}"_FWD.fastq --info-file "${OUTPUT_DIR}"/"${BASE1}"_info_round2.txt 2>> "${LOGFILE}"
+"${OUTPUT_DIR}"/"${BASE1}"_FWD.fastq --info-file "${REPORT_2}" 2>> "${LOGFILE}"
 
 # Second, the FWD primer from teh .2 of the REV files
 
@@ -415,117 +419,140 @@ cutadapt -g "${PRIMER1}"  --cores 16 --discard-untrimmed \
 -o "${OUTPUT_DIR}"/"${BASE2}"_REV_noprimers.fastq \
 -p "${OUTPUT_DIR}"/"${BASE1}"_REV_noprimers.fastq \
 "${OUTPUT_DIR}"/"${BASE2}"_REV.fastq \
-"${OUTPUT_DIR}"/"${BASE1}"_REV.fastq  --report=minimal --info-file "${OUTPUT_DIR}"/"${BASE1}"_info_round3.txt 2>> "${LOGFILE}"
+"${OUTPUT_DIR}"/"${BASE1}"_REV.fastq  --report=minimal --info-file "${REPORT_3}" 2>> "${LOGFILE}"
 
-##### NOW repeat the same cutadapt but changing -g for -a: THis way we keep just the barcode areas, and we can
-## Search for the actual sequences, without the Ns
+###########
+# OK, now we have all the information we need for demultiplexing in the info FILES
+# I am using an Rscript to process these text files, as I think it is easier to program it
+# and troubleshooting. BELEN: Change Rscript for Rscript4.2.1
 
-echo "Now do the same, but keep the sequence BEFORE the PCR primers, on R1"
+#DEMULT ON SHORT SIDE OF THE CUTADAPT 1
+awk -F'\t' -v COLNAME=2 -v VALUE="-1" 'NR>1 {if ($COLNAME != VALUE && $3 != "0") {printf ">%s\n%s\n", $1,$5 } }' "${REPORT_1}" \
+| cutadapt -g "file:"${Barcodes_file}";min_overlap=6" -o /dev/null --info-file "${REPORT_1}"_demult.txt --cores 16 -
 
-cutadapt -a file:"${primers_file}" -o "${OUTPUT_DIR}"/"${BASE1}"_prebarcodes.fastq \
-	-p "${OUTPUT_DIR}"/"${BASE2}"_prebarcodes.fastq \
- "${READ1}" "${READ2}"  --cores 16 --discard-untrimmed --report=minimal 2>> "${LOGFILE}"
+#DEMULT ON SHORT SIDE OF THE CUTADAPT 2
+awk -F'\t' -v COLNAME=2 -v VALUE="-1" 'NR>1 {if ($COLNAME != VALUE && $3 != "0") {printf ">%s\n%s\n", $1,$5 } }' "${REPORT_2}" \
+| cutadapt -g "file:"${Barcodes_file}";min_overlap=6" -o /dev/null --info-file "${REPORT_2}"_demult.txt --cores 16 -
 
-
-echo "Now do the same with the sequence BEFORE the PCR primers, on R2"
-
-cutadapt -a file:"${primers_file}" -o "${OUTPUT_DIR}"/"${BASE2}"_barcodes.fastq \
- 	-p "${OUTPUT_DIR}"/"${BASE1}"_barcodes.fastq \
-  "${OUTPUT_DIR}"/"${BASE2}"_prebarcodes.fastq \
-	 "${OUTPUT_DIR}"/"${BASE1}"_prebarcodes.fastq  --cores 16 --discard-untrimmed --report=minimal  2>> "${LOGFILE}"
-
-nlines_bar=$(awk 'NR%4==1' "${OUTPUT_DIR}"/"${BASE1}"_prebarcodes.fastq | wc -l)
-echo "We found the forward primer in ${nlines_bar} sequences"
-echo ""
-nlines_bar=$(awk 'NR%4==1' "${OUTPUT_DIR}"/"${BASE1}"_barcodes.fastq | wc -l)
-
-echo "We found the forward and reverse primers in ${nlines_bar} sequences"
-echo ""
-
- # rm "${OUTPUT_DIR}"/"${BASE2}"_prebarcodes.fastq
- # rm "${OUTPUT_DIR}"/"${BASE1}"_prebarcodes.fastq
-rm "${OUTPUT_DIR}"/"${BASE2}"_FWD.fastq
-rm "${OUTPUT_DIR}"/"${BASE1}"_FWD.fastq
-rm "${OUTPUT_DIR}"/"${BASE1}"_REV.fastq
-rm "${OUTPUT_DIR}"/"${BASE2}"_REV.fastq
-
-### RUN the demultiplexing on read1,
-
-echo "Now demultiplex the R1 based on the sequences BEFORE the PCR primers"
-echo "This is the Barcodes file"
-head -n 6 "${Barcodes_file}"
-
-cutadapt -g "file:"${Barcodes_file}";min_overlap=6" -o "${OUTPUT_DIR}"/"${ID1S[i]}"_round1_{name}_round1_first.1.fastq \
- -p "${OUTPUT_DIR}"/"${ID1S[i]}"_round1_{name}_round1_first.2.fastq \
- "${OUTPUT_DIR}"/"${BASE1}"_barcodes.fastq \
- "${OUTPUT_DIR}"/"${BASE2}"_barcodes.fastq --cores 16 --discard-untrimmed	--no-indels --report=minimal 2>> "${LOGFILE}"
-
-# And of read2
-i_count=0
-n_files=("${OUTPUT_DIR}"/"${ID1S[i]}"_round1_*_round1_first.2.fastq)
+#DEMULT ON SHORT SIDE OF THE CUTADAPT 3
+awk -F'\t' -v COLNAME=2 -v VALUE="-1" 'NR>1 {if ($COLNAME != VALUE && $3 != "0") {printf ">%s\n%s\n", $1,$5 } }' "${REPORT_3}" \
+| cutadapt -g "file:"${Barcodes_file}";min_overlap=6" -o /dev/null --info-file "${REPORT_3}"_demult.txt --cores 16 -
 
 
- for file in "${n_files[@]}"; do
+Rscript "${SCRIPT_DIR}"/r/demult_in_R.r "${REPORT_1}" "${REPORT_1}"_demult.txt \
+"${REPORT_2}" "${REPORT_3}" "${SAMPLE_TRANS_FILE}" "${REPORT_2}"_demult.txt "${REPORT_3}"_demult.txt \
+"${BASE1}" "${DEMULT_DIR}"
 
-
-	nseq_file=$(awk 'NR%4==1' "${file}" | wc -l)
-
-	i_count=$((i_count+1))
-
-	echo -ne "Working on sample ${i_count} of ${#n_files[@]}"'\r'
-
-
-RIGHT_BARCODE=$(echo ${file} |  awk 'BEGIN {FS="_round1_"}; {print $2}')
-
-echo " We will only keep those with the same BARCODE in R2"
-
-	 cutadapt -g "${RIGHT_BARCODE}" -o "${OUTPUT_DIR}"/"${ID1S[i]}"_"${RIGHT_BARCODE}".second.2.fastq \
-	  "${file}" --cores 16 --discard-untrimmed 2>> "${LOGFILE}"
-
-nseq_s2r1file=$(awk 'NR%4==1' "${OUTPUT_DIR}"/"${ID1S[i]}"_"${RIGHT_BARCODE}".second.2.fastq |  wc -l)
-
-# This last cutadapt gives us the ids of the samples that have primers and the two adapters correctly -
-# Subset all amplicon reads based on this
-
-
-awk 'NR %4==1 {print substr($1,2)}' "${OUTPUT_DIR}"/"${ID1S[i]}"_"${RIGHT_BARCODE}".second.2.fastq > "${OUTPUT_DIR}"/ids.txt
-
-rm "${OUTPUT_DIR}"/"${ID1S[i]}"_"${RIGHT_BARCODE}".second.2.fastq
-
-echo
-seqkit grep -f "${OUTPUT_DIR}"/ids.txt "${OUTPUT_DIR}"/"${BASE1}"_FWD_noprimers.fastq > "${DEMULT_DIR}"/"${ID1S[i]}"_"${RIGHT_BARCODE}"_Fwd.1.fastq
-seqkit grep -f "${OUTPUT_DIR}"/ids.txt "${OUTPUT_DIR}"/"${BASE2}"_FWD_noprimers.fastq > "${DEMULT_DIR}"/"${ID1S[i]}"_"${RIGHT_BARCODE}"_Fwd.2.fastq
-seqkit grep -f "${OUTPUT_DIR}"/ids.txt "${OUTPUT_DIR}"/"${BASE1}"_REV_noprimers.fastq > "${DEMULT_DIR}"/"${ID1S[i]}"_"${RIGHT_BARCODE}"_Rev.1.fastq
-seqkit grep -f "${OUTPUT_DIR}"/ids.txt "${OUTPUT_DIR}"/"${BASE2}"_REV_noprimers.fastq > "${DEMULT_DIR}"/"${ID1S[i]}"_"${RIGHT_BARCODE}"_Rev.2.fastq
-
-
-
-	nseq_NOF1=$(awk 'NR%4==1' "${DEMULT_DIR}"/"${ID1S[i]}"_"${RIGHT_BARCODE}"_Fwd.1.fastq| wc -l)
-	nseq_NOF2=$(awk 'NR%4==1' "${DEMULT_DIR}"/"${ID1S[i]}"_"${RIGHT_BARCODE}"_Fwd.2.fastq| wc -l)
-	nseq_NOR1=$(awk 'NR%4==1' "${DEMULT_DIR}"/"${ID1S[i]}"_"${RIGHT_BARCODE}"_Rev.1.fastq| wc -l)
-	nseq_NOR2=$(awk 'NR%4==1' "${DEMULT_DIR}"/"${ID1S[i]}"_"${RIGHT_BARCODE}"_Rev.2.fastq| wc -l)
-
-	printf "%s,%s,%s,%s,%s,%s,%s\n" \
-	"${file}" "${nseq_file}" \
-	"${nseq_s2r1file}" \
-	"${nseq_NOF1}" "${nseq_NOF2}" \
-	"${nseq_NOR1}" "${nseq_NOR2}" \
-	 >> "${OUTPUT_SUMMARY}"
-
-	## CLEAN AFTER OURSELVES
-
-
-
-done # This finishes the samnple loop
-## get in awk the list of ids that I need
-## REMOVE all from this LIBRARY
-rm "${OUTPUT_DIR}"/"${ID1S[i]}"_round1_*_round1_first.2.fastq
-rm "${OUTPUT_DIR}"/"${ID1S[i]}"_round1_*_round1_first.1.fastq
-rm "${OUTPUT_DIR}"/*.second.2.fastq
-rm "${OUTPUT_DIR}"/"${BASE2}"_FWD_noprimers.fastq
-rm "${OUTPUT_DIR}"/"${BASE1}"_FWD_noprimers.fastq
-rm "${OUTPUT_DIR}"/"${BASE2}"_REV_noprimers.fastq
-rm "${OUTPUT_DIR}"/"${BASE1}"_REV_noprimers.fastq
+#
+# ##### NOW repeat the same cutadapt but changing -g for -a: THis way we keep just the barcode areas, and we can
+# ## Search for the actual sequences, without the Ns
+#
+# echo "Now do the same, but keep the sequence BEFORE the PCR primers, on R1"
+#
+# cutadapt -a file:"${primers_file}" -o "${OUTPUT_DIR}"/"${BASE1}"_prebarcodes.fastq \
+# 	-p "${OUTPUT_DIR}"/"${BASE2}"_prebarcodes.fastq \
+#  "${READ1}" "${READ2}"  --cores 16 --discard-untrimmed --report=minimal 2>> "${LOGFILE}"
+#
+#
+# echo "Now do the same with the sequence BEFORE the PCR primers, on R2"
+#
+# cutadapt -a file:"${primers_file}" -o "${OUTPUT_DIR}"/"${BASE2}"_barcodes.fastq \
+#  	-p "${OUTPUT_DIR}"/"${BASE1}"_barcodes.fastq \
+#   "${OUTPUT_DIR}"/"${BASE2}"_prebarcodes.fastq \
+# 	 "${OUTPUT_DIR}"/"${BASE1}"_prebarcodes.fastq  --cores 16 --discard-untrimmed --report=minimal  2>> "${LOGFILE}"
+#
+# nlines_bar=$(awk 'NR%4==1' "${OUTPUT_DIR}"/"${BASE1}"_prebarcodes.fastq | wc -l)
+# echo "We found the forward primer in ${nlines_bar} sequences"
+# echo ""
+# nlines_bar=$(awk 'NR%4==1' "${OUTPUT_DIR}"/"${BASE1}"_barcodes.fastq | wc -l)
+#
+# echo "We found the forward and reverse primers in ${nlines_bar} sequences"
+# echo ""
+#
+#  # rm "${OUTPUT_DIR}"/"${BASE2}"_prebarcodes.fastq
+#  # rm "${OUTPUT_DIR}"/"${BASE1}"_prebarcodes.fastq
+# rm "${OUTPUT_DIR}"/"${BASE2}"_FWD.fastq
+# rm "${OUTPUT_DIR}"/"${BASE1}"_FWD.fastq
+# rm "${OUTPUT_DIR}"/"${BASE1}"_REV.fastq
+# rm "${OUTPUT_DIR}"/"${BASE2}"_REV.fastq
+#
+# ### RUN the demultiplexing on read1,
+#
+# echo "Now demultiplex the R1 based on the sequences BEFORE the PCR primers"
+# echo "This is the Barcodes file"
+# head -n 6 "${Barcodes_file}"
+#
+# cutadapt -g "file:"${Barcodes_file}";min_overlap=6" -o "${OUTPUT_DIR}"/"${ID1S[i]}"_round1_{name}_round1_first.1.fastq \
+#  -p "${OUTPUT_DIR}"/"${ID1S[i]}"_round1_{name}_round1_first.2.fastq \
+#  "${OUTPUT_DIR}"/"${BASE1}"_barcodes.fastq \
+#  "${OUTPUT_DIR}"/"${BASE2}"_barcodes.fastq --cores 16 --discard-untrimmed	--no-indels --report=minimal 2>> "${LOGFILE}"
+#
+# # And of read2
+# i_count=0
+# n_files=("${OUTPUT_DIR}"/"${ID1S[i]}"_round1_*_round1_first.2.fastq)
+#
+#
+#  for file in "${n_files[@]}"; do
+#
+#
+# 	nseq_file=$(awk 'NR%4==1' "${file}" | wc -l)
+#
+# 	i_count=$((i_count+1))
+#
+# 	echo -ne "Working on sample ${i_count} of ${#n_files[@]}"'\r'
+#
+#
+# RIGHT_BARCODE=$(echo ${file} |  awk 'BEGIN {FS="_round1_"}; {print $2}')
+#
+# echo " We will only keep those with the same BARCODE in R2"
+#
+# 	 cutadapt -g "${RIGHT_BARCODE}" -o "${OUTPUT_DIR}"/"${ID1S[i]}"_"${RIGHT_BARCODE}".second.2.fastq \
+# 	  "${file}" --cores 16 --discard-untrimmed 2>> "${LOGFILE}"
+#
+# nseq_s2r1file=$(awk 'NR%4==1' "${OUTPUT_DIR}"/"${ID1S[i]}"_"${RIGHT_BARCODE}".second.2.fastq |  wc -l)
+#
+# # This last cutadapt gives us the ids of the samples that have primers and the two adapters correctly -
+# # Subset all amplicon reads based on this
+#
+#
+# awk 'NR %4==1 {print substr($1,2)}' "${OUTPUT_DIR}"/"${ID1S[i]}"_"${RIGHT_BARCODE}".second.2.fastq > "${OUTPUT_DIR}"/ids.txt
+#
+# rm "${OUTPUT_DIR}"/"${ID1S[i]}"_"${RIGHT_BARCODE}".second.2.fastq
+#
+# echo
+# seqkit grep -f "${OUTPUT_DIR}"/ids.txt "${OUTPUT_DIR}"/"${BASE1}"_FWD_noprimers.fastq > "${DEMULT_DIR}"/"${ID1S[i]}"_"${RIGHT_BARCODE}"_Fwd.1.fastq
+# seqkit grep -f "${OUTPUT_DIR}"/ids.txt "${OUTPUT_DIR}"/"${BASE2}"_FWD_noprimers.fastq > "${DEMULT_DIR}"/"${ID1S[i]}"_"${RIGHT_BARCODE}"_Fwd.2.fastq
+# seqkit grep -f "${OUTPUT_DIR}"/ids.txt "${OUTPUT_DIR}"/"${BASE1}"_REV_noprimers.fastq > "${DEMULT_DIR}"/"${ID1S[i]}"_"${RIGHT_BARCODE}"_Rev.1.fastq
+# seqkit grep -f "${OUTPUT_DIR}"/ids.txt "${OUTPUT_DIR}"/"${BASE2}"_REV_noprimers.fastq > "${DEMULT_DIR}"/"${ID1S[i]}"_"${RIGHT_BARCODE}"_Rev.2.fastq
+#
+#
+#
+# 	nseq_NOF1=$(awk 'NR%4==1' "${DEMULT_DIR}"/"${ID1S[i]}"_"${RIGHT_BARCODE}"_Fwd.1.fastq| wc -l)
+# 	nseq_NOF2=$(awk 'NR%4==1' "${DEMULT_DIR}"/"${ID1S[i]}"_"${RIGHT_BARCODE}"_Fwd.2.fastq| wc -l)
+# 	nseq_NOR1=$(awk 'NR%4==1' "${DEMULT_DIR}"/"${ID1S[i]}"_"${RIGHT_BARCODE}"_Rev.1.fastq| wc -l)
+# 	nseq_NOR2=$(awk 'NR%4==1' "${DEMULT_DIR}"/"${ID1S[i]}"_"${RIGHT_BARCODE}"_Rev.2.fastq| wc -l)
+#
+# 	printf "%s,%s,%s,%s,%s,%s,%s\n" \
+# 	"${file}" "${nseq_file}" \
+# 	"${nseq_s2r1file}" \
+# 	"${nseq_NOF1}" "${nseq_NOF2}" \
+# 	"${nseq_NOR1}" "${nseq_NOR2}" \
+# 	 >> "${OUTPUT_SUMMARY}"
+#
+# 	## CLEAN AFTER OURSELVES
+#
+#
+#
+# done # This finishes the samnple loop
+# ## get in awk the list of ids that I need
+# ## REMOVE all from this LIBRARY
+# rm "${OUTPUT_DIR}"/"${ID1S[i]}"_round1_*_round1_first.2.fastq
+# rm "${OUTPUT_DIR}"/"${ID1S[i]}"_round1_*_round1_first.1.fastq
+# rm "${OUTPUT_DIR}"/*.second.2.fastq
+# rm "${OUTPUT_DIR}"/"${BASE2}"_FWD_noprimers.fastq
+# rm "${OUTPUT_DIR}"/"${BASE1}"_FWD_noprimers.fastq
+# rm "${OUTPUT_DIR}"/"${BASE2}"_REV_noprimers.fastq
+# rm "${OUTPUT_DIR}"/"${BASE1}"_REV_noprimers.fastq
 # rm "${OUTPUT_DIR}"/"${BASE1}"_barcodes.fastq
 # rm "${OUTPUT_DIR}"/"${BASE2}"_barcodes.fastq
 
