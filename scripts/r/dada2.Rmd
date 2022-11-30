@@ -5,13 +5,13 @@ date: ""
 output: html_document
 params:
   folder:
-    value: /home/mk1b/Projects/nsDNA/pipeline_output/demultiplexed_20221123_1513
+    value: /home/mk1b/Projects/nsDNA/pipeline_output/demult.test
   hash:
     value: "yes"
   cont:
-    value: z
+    value: "YES"
   fastqs:
-    value:  /home/mk1b/Projects/nsDNA/pipeline_output/demultiplexed_20221123_1513/demultiplexed
+    value:  /home/mk1b/Projects/nsDNA/pipeline_output/demultiplexed_20221130_1503/demultiplexed
 
   original:
     value: b
@@ -40,6 +40,8 @@ library (rlang)
 
 #fastq.folder="/Users/rgallego/fastqs_demultiplexed_for_DADA2/demultiplexed_20180108_1539"
 sample.map <- read_delim(paste0(params$folder,"/sample_trans.tmp"),col_names = c("Full_Id", "fastq_header","Sample"),delim = "\t")
+sample.map %>% 
+  mutate(Sample = str_replace(Sample, "/", "-")) -> sample.map
 head (sample.map)
 
 path1 <- params$fastqs
@@ -56,27 +58,43 @@ Firstly, we'll find the patterns that separate our Fwd, Rev, .1 and .2 files. lo
 ```{r listing files}
 version$version.string
 
-F1s <- sort(list.files(path1, pattern="_Fwd.1.fastq", full.names = TRUE))
-F2s <- sort(list.files(path1, pattern="_Fwd.2.fastq", full.names = TRUE))
-R1s <- sort(list.files(path1, pattern="_Rev.1.fastq", full.names = TRUE))
-R2s <- sort(list.files(path1, pattern="_Rev.2.fastq", full.names = TRUE))
+F1s <- sort(list.files(path1, pattern="_FWD.1.fastq.gz", full.names = TRUE))
+F2s <- sort(list.files(path1, pattern="_FWD.2.fastq.gz", full.names = TRUE))
+R1s <- sort(list.files(path1, pattern="_REV.1.fastq.gz", full.names = TRUE))
+R2s <- sort(list.files(path1, pattern="_REV.2.fastq.gz", full.names = TRUE))
 
-# Extract sample names, assuming filenames have format: SAMPLENAME_XXX.fastq
-sample.names <- str_replace(basename(F1s), "_Fwd.1.fastq","")
 
-#Now use only those that reflect a real sample
+tibble(F1s = F1s, 
+       F2s = F2s) %>% 
+  mutate(sample_name = str_replace(basename(F1s), "_FWD.1.fastq.gz","")) %>% 
+  inner_join(sample.map, by = c("sample_name" = "fastq_header")) -> goodFs
 
-good.sample.names<-sample.names[sample.names %in% sample.map$fastq_header]
-# Introduce here the biological counterpart of the fastq file
-
-real.sample.name <- sample.map[,3][match(good.sample.names,sample.map$fastq_header),1]
+# 
+# # Extract sample names, assuming filenames have format: SAMPLENAME_XXX.fastq
+# sample.names <- str_replace(basename(F1s), "_FWD.1.fastq.gz","")
+# 
+# #Now use only those that reflect a real sample
+# 
+# good.sample.names<-sample.names[sample.names %in% sample.map$fastq_header]
+# # Introduce here the biological counterpart of the fastq file
+# 
+# real.sample.name <- sample.map[,3][match(good.sample.names,sample.map$fastq_header),1]
 
 # Now subset the number of files to be looked at
 
-F1sgood<-F1s[sample.names %in% sample.map$fastq_header]
-F2sgood<-F2s[sample.names %in% sample.map$fastq_header]
-R1sgood<-R1s[sample.names %in% sample.map$fastq_header]
-R2sgood<-R2s[sample.names %in% sample.map$fastq_header]
+F1sgood<-goodFs$F1s
+F2sgood<-goodFs$F2s
+
+FiltFs <- goodFs$Sample
+
+tibble(R1s = R1s, 
+       R2s = R2s) %>% 
+  mutate(sample_name = str_replace(basename(R1s), "_REV.1.fastq.gz","")) %>% 
+  inner_join(sample.map, by = c("sample_name" = "fastq_header")) -> goodRs
+R1sgood<-goodRs$R1s
+R2sgood<-goodRs$R2s
+FiltRs <- goodRs$Sample
+
 
 ```
 
@@ -85,16 +103,16 @@ R2sgood<-R2s[sample.names %in% sample.map$fastq_header]
 ## Now start with the trimming of each read based on the quality we just plotted
 ```{r filter and trim}
 filt_path <- file.path(params$folder, "/filtered_220_120") # Place filtered files in filtered/ subdirectory
-filtF1s <- file.path(filt_path, paste0(good.sample.names, "_F1_filt.fastq.gz"))
-filtF2s <- file.path(filt_path, paste0(good.sample.names, "_F2_filt.fastq.gz"))
+filtF1s <- file.path(filt_path, paste0(FiltFs, "_F1_filt.fastq.gz"))
+filtF2s <- file.path(filt_path, paste0(FiltFs, "_F2_filt.fastq.gz"))
 out_Fs <- filterAndTrim(F1sgood, filtF1s, F2sgood, filtF2s,
    truncLen=c(220,120),
                       maxN=0, maxEE=c(2,2),
    # truncQ=10, rm.phix=TRUE,
                       compress=TRUE, multithread=TRUE) # On Windows set multithread=FALSE
 
-filtR1s <- file.path(filt_path, paste0(good.sample.names, "_R1_filt.fastq.gz"))
-filtR2s <- file.path(filt_path, paste0(good.sample.names, "_R2_filt.fastq.gz"))
+filtR1s <- file.path(filt_path, paste0(FiltRs, "_R1_filt.fastq.gz"))
+filtR2s <- file.path(filt_path, paste0(FiltRs, "_R2_filt.fastq.gz"))
 out_Rs <- filterAndTrim(R1sgood, filtR1s, R2sgood, filtR2s,
   truncLen=c(220,120),
                       maxN=0, maxEE=c(2,2),
@@ -130,42 +148,47 @@ bind_rows(out_Fs_tibble, out_Rs_tibble) %>%
 Before calculating errors, it is best to remove samples that have 0 or few reads.
 
 ```{r removing samples 1}
-out_Fs_tibble %>%
-  filter (reads.out > 20) %>%
-  mutate (key = str_remove(file, "_Fwd.1.fastq")) %>%
-  select(key)-> filt_Fs_good
+filtF1s[out_Fs_tibble$reads.out>20] -> filtF1s_good
+filtF2s[out_Fs_tibble$reads.out>20] -> filtF2s_good
 
-out_Rs_tibble %>%
-  filter (reads.out > 20) %>%
-  mutate (key = str_remove(file, "_Rev.1.fastq")) %>%
-  select(key)-> filt_Rs_good
-
-## Select only those files in the lists above
-
-tibble(Filenames = filtF1s) %>%
-  separate(Filenames, into = c(NA, "key"), sep = "/filtered_220_120/", remove = F ) %>%
-  mutate (key = str_remove(key, "_F1_filt.fastq.gz")) %>%
-  inner_join(filt_Fs_good) %>%
-  pull(Filenames) -> filtF1s_good
-
-tibble(Filenames = filtF2s) %>%
-  separate(Filenames, into = c(NA, "key"), sep = "/filtered_220_120/", remove = F ) %>%
-  mutate (key = str_remove(key, "_F2_filt.fastq.gz")) %>%
-  inner_join(filt_Fs_good) %>%
-  pull(Filenames) -> filtF2s_good
-
-### Same for Rs
-tibble(Filenames = filtR1s) %>%
-  separate(Filenames, into = c(NA, "key"), sep = "/filtered_220_120/", remove = F ) %>%
-  mutate (key = str_remove(key, "_R1_filt.fastq.gz")) %>%
-  inner_join(filt_Rs_good) %>%
-  pull(Filenames) -> filtR1s_good
-
-tibble(Filenames = filtR2s) %>%
-  separate(Filenames, into = c(NA, "key"), sep = "/filtered_220_120/", remove = F ) %>%
-  mutate (key = str_remove(key, "_R2_filt.fastq.gz")) %>%
-  inner_join(filt_Rs_good) %>%
-  pull(Filenames) -> filtR2s_good
+filtR1s[out_Rs_tibble$reads.out>20] -> filtR1s_good
+filtR2s[out_Rs_tibble$reads.out>20] -> filtR2s_good
+# out_Fs_tibble %>%
+#   filter (reads.out > 20) %>%
+#   mutate (key = str_remove(file, "_FWD.1.fastq.gz")) %>%
+#   select(key)-> filt_Fs_good
+# 
+# out_Rs_tibble %>%
+#   filter (reads.out > 20) %>%
+#   mutate (key = str_remove(file, "_REV.1.fastq.gz")) %>%
+#   select(key)-> filt_Rs_good
+# 
+# ## Select only those files in the lists above
+# 
+# tibble(Filenames = filtF1s) %>%
+#   separate(Filenames, into = c(NA, "key"), sep = "/filtered_220_120/", remove = F ) %>%
+#   mutate (key = str_remove(key, "_F1_filt.fastq.gz")) %>%
+#   inner_join(filt_Fs_good) %>%
+#   pull(Filenames) -> filtF1s_good
+# 
+# tibble(Filenames = filtF2s) %>%
+#   separate(Filenames, into = c(NA, "key"), sep = "/filtered_220_120/", remove = F ) %>%
+#   mutate (key = str_remove(key, "_F2_filt.fastq.gz")) %>%
+#   inner_join(filt_Fs_good) %>%
+#   pull(Filenames) -> filtF2s_good
+# 
+# ### Same for Rs
+# tibble(Filenames = filtR1s) %>%
+#   separate(Filenames, into = c(NA, "key"), sep = "/filtered_220_120/", remove = F ) %>%
+#   mutate (key = str_remove(key, "_R1_filt.fastq.gz")) %>%
+#   inner_join(filt_Rs_good) %>%
+#   pull(Filenames) -> filtR1s_good
+# 
+# tibble(Filenames = filtR2s) %>%
+#   separate(Filenames, into = c(NA, "key"), sep = "/filtered_220_120/", remove = F ) %>%
+#   mutate (key = str_remove(key, "_R2_filt.fastq.gz")) %>%
+#   inner_join(filt_Rs_good) %>%
+#   pull(Filenames) -> filtR2s_good
 
 ```
 
@@ -210,12 +233,12 @@ plotErrors(errR2, nominalQ = T)
 
 # Name the derep-class objects by the sample names
 
-rownames(out_Fs) <- real.sample.name$Sample
-sample_map<- sample.map %>%
-select(key = fastq_header, Sample)
+rownames(out_Fs) <- FiltFs
+# sample_map<- sample.map %>%
+# select(key = fastq_header, Sample)
 
-filt_Fs_good %>%
-  left_join(sample_map) -> filt_Fs_good
+# filt_Fs_good %>%
+#   left_join(sample_map) -> filt_Fs_good
 
 
 derepF1s <- derepFastq(filtF1s_good, verbose=TRUE)
@@ -223,29 +246,29 @@ derepF1s <- derepFastq(filtF1s_good, verbose=TRUE)
 derepF2s <- derepFastq(filtF2s_good, verbose=TRUE)
 
 
-names(derepF1s) <- names(derepF2s) <- filt_Fs_good$Sample
+# names(derepF1s) <- names(derepF2s) <- filt_Fs_good$Sample
 write_rds(derepF1s, "derepF1s.rds")
 write_rds(derepF2s, "derepF2s.rds")
 rm(derepF2s, derepF1s)
 gc()
 # Now the other half
 
-filt_Rs_good %>%
-  left_join(sample_map) -> filt_Rs_good
+# filt_Rs_good %>%
+#   left_join(sample_map) -> filtRs
 
-rownames(out_Rs) <- real.sample.name$Sample
+rownames(out_Rs) <- FiltRs
 
 derepR1s <- derepFastq(filtR1s_good, verbose=TRUE)
 
 
- names(derepR1s) <-filt_Rs_good$Sample
+ # names(derepR1s) <-filt_Rs_good$Sample
  write_rds(derepR1s, "derepR1s.rds")
 
 rm(derepR1s)
 gc()
 
 derepR2s <- derepFastq(filtR2s_good, verbose=TRUE)
- names(derepR2s) <- filt_Rs_good$Sample
+ # names(derepR2s) <- filt_Rs_good$Sample
 write_rds(derepR2s, "derepR2s.rds")
 rm(derepR2s)
 gc()
@@ -466,13 +489,14 @@ full_join(seqtab.R.df, seqtab.F.df) %>%
   group_by(sample,sequence ) %>%
   mutate(nReads = sum(nReads_R + nReads_F)) %>%
   select(sample, sequence, nReads)  %>%
-  pivot_wider(id_cols = sample, names_from = sequence, values_from = nReads) -> full_df
+  pivot_wider(id_cols = sample, names_from = sequence, values_from = nReads, values_fill = 0) -> full_df
 
 
 
 final.seqtab <- full_df %>%
   ungroup() %>%
   select(-sample) %>%
+  # mutate_all(as.numeric) %>% 
   as.matrix()
 
 dimnames(final.seqtab)[[1]] <- full_df$sample

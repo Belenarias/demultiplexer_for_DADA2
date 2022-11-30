@@ -441,7 +441,7 @@ awk -F'\t' -v COLNAME=2 -v VALUE="-1" 'NR>1 {if ($COLNAME != VALUE && $3 != "0")
 
 Rscript "${SCRIPT_DIR}"/r/demult_in_R.r "${REPORT_1}" "${REPORT_1}"_demult.txt \
 "${REPORT_2}" "${REPORT_3}" "${SAMPLE_TRANS_FILE}" "${REPORT_2}"_demult.txt "${REPORT_3}"_demult.txt \
-"${BASE1}" "${DEMULT_DIR}"
+"${ID1S[i]}" "${DEMULT_DIR}"
 
 #
 # ##### NOW repeat the same cutadapt but changing -g for -a: THis way we keep just the barcode areas, and we can
