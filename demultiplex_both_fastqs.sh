@@ -8,7 +8,7 @@
 #$ -m be
 #$ -pe smp 50
 
-param_file="/home/mk1b/Projects/nsDNA/data/Full_data/params_short_data.sh"
+param_file="/home/mk1b/Projects/nsDNA/data/Full_data/params_full_data.sh"
 
 ## There is another million of reads that leak on the first cutadapt, and
 ## I guess another million on the second cutadapt

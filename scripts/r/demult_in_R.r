@@ -42,7 +42,7 @@ cutadapt_demultR1 <- read_delim(file = arguments[2],
   # filter (n_errors > -1) %>%
   select(Seq.id, adap_name) %>%
   separate(Seq.id, into = "key", sep = " ") %>% # Add direction
-  left_join(cutadapt.r1 %>% select(key, Primer =  adap_name))
+  right_join(cutadapt.r1 %>% select(key, Primer =  adap_name, seq_before_adap))
   # group_by(adap_name) %>% 
   # nest()
 
@@ -78,7 +78,8 @@ cutadapt_demultR2 <- read_delim(file = arguments[6],
   # filter (n_errors > -1) %>%
   select(Seq.id, adap_name) %>%
   separate(Seq.id, into = "key", sep = " ") %>%
-  mutate(Primer = "FWD") 
+  mutate(Primer = "FWD") %>% 
+  right_join(cutadapt.r2 %>% select(key, seq_before_adap))
   # group_by(adap_name) %>% 
   # nest()
 
@@ -91,19 +92,20 @@ cutadapt_demultR3 <- read_delim(file = arguments[7],
   # filter (n_errors > -1) %>%
   select(Seq.id, adap_name) %>%
   separate(Seq.id, into = "key", sep = " ") %>%
-  mutate(Primer = "REV") #%>%
+  mutate(Primer = "REV") %>%
+  right_join(cutadapt.r3 %>% select(key,  seq_before_adap), by = "key") #%>%
   # group_by(adap_name) %>% 
   # nest()
 
 bind_rows(cutadapt_demultR2, cutadapt_demultR3) %>% 
-  full_join(cutadapt_demultR1, ., by = "key", suffix = c(".1", ".2")) %>% 
+  inner_join(cutadapt_demultR1, ., by = "key", suffix = c(".1", ".2")) %>% 
   mutate(Primer =case_when(is.na(Primer.1) ~ Primer.2,
                            is.na(Primer.2) ~ Primer.1,
                            Primer.1 == Primer.2 ~ Primer.1) ,
         
          Final_sample = case_when( adap_name.1 == adap_name.2 ~ adap_name.1,
-                                   is.na(adap_name.1) & !is.na(adap_name.2) ~ adap_name.2,
-                                   !is.na(adap_name.1) & is.na(adap_name.2) ~ adap_name.1)) %>% 
+                                   is.na(adap_name.1) & is.na(seq_before_adap.1)& !is.na(adap_name.2) ~ adap_name.2,
+                                   !is.na(adap_name.1) & is.na(seq_before_adap.2) & is.na(adap_name.2) ~ adap_name.1)) %>% 
   
   inner_join(cutadapt.r1 %>% 
                select(key,
