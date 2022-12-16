@@ -25,9 +25,9 @@ sample.map <- read_table(arguments[5],
 
 
 
-cutadapt.r1 <- read_delim(arguments[1], 
+cutadapt.r1 <- vroom::vroom(arguments[1], 
                           col_names = parsing_colnames,
-                          delim = "\t") %>% 
+                          delim = "\t", col_types ="ci--c-cc--c") %>% 
   filter (n_errors!= -1)%>%
   separate(Seq.id, into = "key", sep = " ")
 
@@ -35,10 +35,11 @@ cutadapt.r1 <- read_delim(arguments[1],
 #   filter(n_errors!= -1 & start_adap == 0) %>% select(Seq.id) %>% 
 #   separate(Seq.id, into = "key", sep = " ") 
 
-cutadapt_demultR1 <- read_delim(file = arguments[2], 
+cutadapt_demultR1 <- vroom::vroom(file = arguments[2], 
                                 # file ="pipeline_output/last_demult/Lib01_demultF.txt", 
                                 col_names =parsing_colnames,
-                                delim = "\t") %>% 
+                                delim = "\t",
+                                col_types = "c------c") %>% 
   # filter (n_errors > -1) %>%
   select(Seq.id, adap_name) %>%
   separate(Seq.id, into = "key", sep = " ") %>% # Add direction
@@ -48,16 +49,16 @@ cutadapt_demultR1 <- read_delim(file = arguments[2],
 
 
 
-cutadapt.r2 <- read_delim(#file ="pipeline_output/last_demult/Lib01_demultF.txt",
+cutadapt.r2 <- vroom::vroom(#file ="pipeline_output/last_demult/Lib01_demultF.txt",
                           arguments[3],
                           col_names = parsing_colnames,
-                          delim = "\t")  %>% 
+                          delim = "\t", col_types ="ci--c-cc--c")  %>% 
   filter (n_errors!= -1)%>%
   separate(Seq.id, into = "key", sep = " ")
 
-cutadapt.r3 <- read_delim(arguments[4], 
+cutadapt.r3 <- vroom::vroom(arguments[4], 
                           col_names = parsing_colnames,
-                          delim = "\t") %>% 
+                          delim = "\t", col_types ="ci--c-cc--c") %>% 
   filter (n_errors!= -1)%>%
   separate(Seq.id, into = "key", sep = " ")
 
@@ -71,10 +72,11 @@ cutadapt.r3 <- read_delim(arguments[4],
 #   separate(Seq.id, into = "key", sep = " ") 
 
 
-cutadapt_demultR2 <- read_delim(file = arguments[6], 
+cutadapt_demultR2 <- vroom::vroom(file = arguments[6], 
   # file ="pipeline_output/last_demult/Lib01_demultR2.txt", 
   col_names =parsing_colnames,
-  delim = "\t") %>% 
+  delim = "\t",
+  col_types = "c------c") %>% 
   # filter (n_errors > -1) %>%
   select(Seq.id, adap_name) %>%
   separate(Seq.id, into = "key", sep = " ") %>%
@@ -85,10 +87,11 @@ cutadapt_demultR2 <- read_delim(file = arguments[6],
 
 
 
-cutadapt_demultR3 <- read_delim(file = arguments[7], 
+cutadapt_demultR3 <- vroom::vroom(file = arguments[7], 
   # file ="pipeline_output/last_demult/Lib01_demultR3.txt", 
   col_names =parsing_colnames,
-  delim = "\t") %>% 
+  delim = "\t",
+  col_types = "c------c") %>% 
   # filter (n_errors > -1) %>%
   select(Seq.id, adap_name) %>%
   separate(Seq.id, into = "key", sep = " ") %>%
