@@ -26,7 +26,7 @@ sample.map <- read_table(arguments[5],
 
 
 cutadapt.r1 <- vroom::vroom(arguments[1], 
-                          col_names = parsing_colnames,
+                          col_names = parsing_colnames[c(1,2,5,7,8,11)],
                           delim = "\t", col_types ="ci--c-cc--c") %>% 
   filter (n_errors!= -1)%>%
   separate(Seq.id, into = "key", sep = " ")
@@ -37,7 +37,7 @@ cutadapt.r1 <- vroom::vroom(arguments[1],
 
 cutadapt_demultR1 <- vroom::vroom(file = arguments[2], 
                                 # file ="pipeline_output/last_demult/Lib01_demultF.txt", 
-                                col_names =parsing_colnames,
+                                col_names =parsing_colnames[c(1,8)],
                                 delim = "\t",
                                 col_types = "c------c") %>% 
   # filter (n_errors > -1) %>%
@@ -51,13 +51,13 @@ cutadapt_demultR1 <- vroom::vroom(file = arguments[2],
 
 cutadapt.r2 <- vroom::vroom(#file ="pipeline_output/last_demult/Lib01_demultF.txt",
                           arguments[3],
-                          col_names = parsing_colnames,
+                          col_names = parsing_colnames[c(1,2,5,7,11)],
                           delim = "\t", col_types ="ci--c-cc--c")  %>% 
   filter (n_errors!= -1)%>%
   separate(Seq.id, into = "key", sep = " ")
 
 cutadapt.r3 <- vroom::vroom(arguments[4], 
-                          col_names = parsing_colnames,
+                          col_names = parsing_colnames[c(1,2,5,7,11)],
                           delim = "\t", col_types ="ci--c-cc--c") %>% 
   filter (n_errors!= -1)%>%
   separate(Seq.id, into = "key", sep = " ")
@@ -74,7 +74,7 @@ cutadapt.r3 <- vroom::vroom(arguments[4],
 
 cutadapt_demultR2 <- vroom::vroom(file = arguments[6], 
   # file ="pipeline_output/last_demult/Lib01_demultR2.txt", 
-  col_names =parsing_colnames,
+  col_names =parsing_colnames[c(1,8)],
   delim = "\t",
   col_types = "c------c") %>% 
   # filter (n_errors > -1) %>%
@@ -89,7 +89,7 @@ cutadapt_demultR2 <- vroom::vroom(file = arguments[6],
 
 cutadapt_demultR3 <- vroom::vroom(file = arguments[7], 
   # file ="pipeline_output/last_demult/Lib01_demultR3.txt", 
-  col_names =parsing_colnames,
+  col_names =parsing_colnames[c(1,8)],
   delim = "\t",
   col_types = "c------c") %>% 
   # filter (n_errors > -1) %>%
