@@ -8,7 +8,7 @@
 #$ -m be
 #$ -pe smp 50
 
-param_file="/home/mk1b/Projects/nsDNA/data/Full_data/params_full_data.sh"
+param_file="/mnt/c/Users/RG.5015511/Documents/Projects/nsDNA/data/params_short_data.sh"
 
 ## There is another million of reads that leak on the first cutadapt, and
 ## I guess another million on the second cutadapt
@@ -25,7 +25,7 @@ param_file="/home/mk1b/Projects/nsDNA/data/Full_data/params_full_data.sh"
 
 #We need to gather: Location of functions  and fastqs:
 MAIN_DIR="$(dirname "$0")"
-SCRIPT_DIR="/home/mk1b/Projects/demultiplexer_for_DADA2/scripts"
+SCRIPT_DIR="/mnt/c/Users/RG.5015511/Documents/Projects/demultiplexer_for_DADA2_Belen/scripts"
 for file in "${SCRIPT_DIR}"/*.sh ; do
 	source "${file}"
 done
